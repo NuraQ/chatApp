@@ -8,11 +8,24 @@
 
 import UIKit
 
-class ViewController: UIViewController , UITextFieldDelegate , UITableViewDelegate , UITableViewDataSource  {
+class ViewController: UIViewController,ObservableObject,UITextFieldDelegate , UITableViewDelegate , UITableViewDataSource  {
   
     static var textMessages:[String] = []
     var currentMsg:String? = nil
+
     
+    @IBOutlet weak var bottomConstraint: NSLayoutConstraint!
+    @IBOutlet weak var textfieldBottomConstraint: NSLayoutConstraint!
+
+    
+    override func viewDidLoad() {
+
+        let notificationCenter = NotificationCenter.default
+        notificationCenter.addObserver(self, selector: #selector(keyboardWillShow), name: UIResponder.keyboardWillShowNotification, object: nil)
+        notificationCenter.addObserver(self, selector: #selector(onKeyboardDisappear), name: UIResponder.keyboardWillHideNotification, object: nil)
+           
+    }
+
     func numberOfSections(in tableView: UITableView) -> Int {
         return 1
     }
@@ -22,7 +35,7 @@ class ViewController: UIViewController , UITextFieldDelegate , UITableViewDelega
   
     @IBOutlet weak var tableView: UITableView! {
         didSet {
-            tableView.delegate = self
+          tableView.delegate = self
             tableView.dataSource = self
             tableView.scrollIndicatorInsets = UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: tableView.bounds.size.width - 8.0)
 
@@ -41,8 +54,6 @@ class ViewController: UIViewController , UITextFieldDelegate , UITableViewDelega
                 return cell
     }
 
-
-
     @IBOutlet weak var textFeild: UITextField!{
         didSet {
             textFeild.delegate = self
@@ -57,12 +68,12 @@ class ViewController: UIViewController , UITextFieldDelegate , UITableViewDelega
             print("curr msg in send \(String(describing: currentMsg))")
             currentMsg = nil
         }
-        tableView.setContentOffset(CGPoint(x: 0, y: CGFloat.greatestFiniteMagnitude), animated: false)
         scrollToBottom()
         tableView.reloadData()
         
     }
-
+    
+    
     
     func scrollToBottom(){
         DispatchQueue.main.async {
@@ -72,9 +83,51 @@ class ViewController: UIViewController , UITextFieldDelegate , UITableViewDelega
     }
     @objc func textFieldDidChange(_ textField: UITextField) {
         currentMsg = textFeild.text ?? nil
-        print("curr msg \(String(describing: currentMsg))")
 
     }
+
+    @objc func keyboardWillShow (notification: NSNotification) {
+        
+     let key = UIResponder.keyboardFrameEndUserInfoKey
+     guard let keyboardFrame = notification.userInfo?[key] as? CGRect else {
+       return
+     }
+
+        let safeAreaBottom = view.safeAreaLayoutGuide.layoutFrame.maxY
+        let viewHeight = view.bounds.height
+        let safeAreaOffset = viewHeight - safeAreaBottom
+
+       UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseInOut], animations: {
+        self.bottomConstraint.constant = keyboardFrame.height - self.textfieldBottomConstraint.constant  - safeAreaOffset  ;
+        self.view.layoutIfNeeded()
+
+       }, completion: nil)
+        let insets = UIEdgeInsets(top: 0, left: 0, bottom:safeAreaOffset , right: 0)
+                     tableView.contentInset = insets
+                     tableView.scrollIndicatorInsets = insets
+    }
+   
     
+    @objc func onKeyboardDisappear(_ notification: NSNotification) {
+       let contentInsets = UIEdgeInsets(top: 0.0, left: 0.0, bottom: 0.0, right: 0.0)
+        tableView.contentInset = contentInsets
+        tableView.scrollIndicatorInsets = contentInsets
+        self.view.frame.origin.y = 0
+        UIView.animate(withDuration: 0.3, delay: 0, options: [.curveEaseInOut], animations: {
+            self.bottomConstraint.constant = 0
+         self.view.layoutIfNeeded()
+
+        }, completion: nil)
+        view.endEditing(true)
+    }
+    
+    
+}
+
+extension ViewController {
+func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+    textField.resignFirstResponder()
+    return false
+    }
 }
 
